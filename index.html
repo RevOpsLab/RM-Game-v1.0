@@ -1,0 +1,437 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Seat Control Trainer — Revenue Management Game</title>
+  <style>
+    :root{
+      --bg:#0b1020; --panel:#121836; --muted:#3b4470; --text:#e8ecff; --accent:#7aa2ff; --good:#1fd08a; --warn:#ffcc66; --bad:#ff6b6b;
+    }
+    *{box-sizing:border-box}
+    body{margin:0; font-family:Inter, system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial, "Noto Sans", "Apple Color Emoji", "Segoe UI Emoji"; background:linear-gradient(180deg, #0b1020, #0a0f24); color:var(--text)}
+    header{padding:20px 16px; border-bottom:1px solid #1e2550; background:rgba(10,15,36,.6); backdrop-filter: blur(6px); position:sticky; top:0; z-index:10}
+    header h1{margin:0; font-size:20px; letter-spacing:.3px}
+    header .sub{opacity:.8; font-size:12px}
+
+    .wrap{max-width:1100px; margin:20px auto 80px; padding:0 16px; display:grid; grid-template-columns: 360px 1fr; gap:16px}
+
+    .card{background:var(--panel); border:1px solid #1c234a; border-radius:16px; padding:16px; box-shadow:0 10px 24px rgba(3,8,30,.25)}
+    .card h2{margin:0 0 8px 0; font-size:16px}
+    .row{display:flex; align-items:center; gap:10px; flex-wrap:wrap}
+    .row > * {flex:0 0 auto}
+    .muted{color:#b9c3ff; opacity:.85; font-size:12px}
+    .kpi{display:grid; grid-template-columns: repeat(2,1fr); gap:10px; margin-top:10px}
+    .pill{display:inline-flex; align-items:center; gap:8px; padding:6px 10px; border-radius:999px; background:#0f1533; border:1px solid #222a5a; font-size:12px}
+    .pill b{font-size:13px}
+
+    .toggle {position:relative; display:inline-flex; align-items:center; gap:8px; font-size:13px}
+    .toggle input{appearance:none; width:46px; height:26px; background:#222a5a; border-radius:999px; position:relative; outline:none; cursor:pointer; transition:.2s ease}
+    .toggle input:checked{background:#23427c}
+    .toggle input::after{content:""; position:absolute; top:3px; left:3px; width:20px; height:20px; border-radius:50%; background:#c7d3ff; transition:.2s ease}
+    .toggle input:checked::after{transform:translateX(20px); background:#8cc1ff}
+
+    .btn{border:1px solid #283368; background:#18204a; color:var(--text); padding:10px 14px; border-radius:12px; cursor:pointer; transition:.15s ease; font-weight:600}
+    .btn:hover{transform:translateY(-1px); box-shadow:0 8px 18px rgba(12,18,46,.35)}
+    .btn.primary{background:linear-gradient(180deg,#3157ee,#2746c9); border-color:#3451db}
+    .btn.ghost{background:transparent}
+    .btn.small{padding:6px 10px; font-size:12px; border-radius:10px}
+
+    table{width:100%; border-collapse:collapse; font-size:13px; overflow:hidden; border-radius:12px; border:1px solid #1f2756}
+    th, td{padding:10px 10px; text-align:left}
+    thead th{background:#18204a; color:#cfe0ff; position:sticky; top:0; z-index:1}
+    tbody tr:nth-child(odd){background:#0f1536}
+    tbody tr:nth-child(even){background:#111842}
+    tfoot td{background:#151c46; font-weight:700}
+
+    .hint{background:#0e173a; border-left:3px solid var(--accent); padding:12px; border-radius:8px; font-size:13px; color:#dbe5ff}
+    .legend{display:flex; gap:12px; flex-wrap:wrap}
+    .tag{padding:4px 8px; border-radius:999px; border:1px solid #24306a; font-size:12px; background:#0e1435}
+
+    .grid{display:grid; grid-template-columns: repeat(3, 1fr); gap:10px}
+    .metric{background:#0f1536; border:1px solid #1f2756; border-radius:12px; padding:10px}
+    .metric .label{font-size:12px; color:#cfe0ff; opacity:.85}
+    .metric .value{font-size:20px; font-weight:800; margin-top:6px}
+
+    .footer{margin-top:10px; display:flex; align-items:center; gap:8px; justify-content:flex-end}
+
+    .endcard{display:grid; grid-template-columns: 1.2fr .8fr; gap:16px}
+    .compare{display:grid; grid-template-columns: repeat(3, 1fr); gap:10px}
+    .score{font-size:28px; font-weight:800}
+    .score.good{color:var(--good)}
+    .score.bad{color:var(--bad)}
+    .small{font-size:12px; opacity:.9}
+
+    a{color:var(--accent)}
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Seat Control Trainer — Revenue Management Game</h1>
+    <div class="sub">Make daily open/close decisions for fare classes to maximise total revenue on a single flight. 10 days, 80 seats. Simple buy-up is modelled. ✈️</div>
+  </header>
+
+  <div class="wrap">
+    <!-- LEFT: Controls -->
+    <section class="card" id="controls">
+      <h2>Today's Controls</h2>
+      <div class="muted">Day <b id="dayLabel">1</b> of <b>10</b> • Departure in <b id="depDays">10</b> days • Seats left: <b id="seatsLeft">80</b></div>
+
+      <div style="height:8px"></div>
+      <div class="grid">
+        <div class="metric">
+          <div class="label">High Fare (Y)</div>
+          <div class="value">$<span id="fareY">400</span></div>
+          <div class="small">Always open</div>
+        </div>
+        <div class="metric">
+          <div class="label">Mid Fare (M)</div>
+          <div class="value">$<span id="fareM">250</span></div>
+          <label class="toggle"><input type="checkbox" id="toggleM" checked /><span>Open today</span></label>
+        </div>
+        <div class="metric">
+          <div class="label">Low Fare (L)</div>
+          <div class="value">$<span id="fareL">120</span></div>
+          <label class="toggle"><input type="checkbox" id="toggleL" checked /><span>Open today</span></label>
+        </div>
+      </div>
+
+      <div style="height:8px"></div>
+      <div class="hint" id="hintBox">Tip: Early in the horizon, keep low fares open unless you expect to fill up. Later, protect seats for higher fares.</div>
+
+      <div class="footer">
+        <button class="btn ghost small" id="btnHint">Get Hint</button>
+        <button class="btn" id="btnSim">Run Day</button>
+        <button class="btn primary" id="btnReset">New Game</button>
+      </div>
+    </section>
+
+    <!-- RIGHT: State / Table -->
+    <section class="card">
+      <h2>Flight State & Results</h2>
+      <div class="legend">
+        <span class="tag">Capacity: <b id="capTag">80</b></span>
+        <span class="tag">Booked: <b id="bookedTag">0</b></span>
+        <span class="tag">Revenue: <b id="revTag">$0</b></span>
+        <span class="tag">Load Factor: <b id="lfTag">0%</b></span>
+      </div>
+
+      <div style="height:12px"></div>
+      <table id="dailyTable">
+        <thead>
+          <tr>
+            <th>Day</th>
+            <th>Controls (M/L)</th>
+            <th>Arrivals Y/M/L</th>
+            <th>Buy-ups</th>
+            <th>Booked Y/M/L</th>
+            <th>Seats Left</th>
+            <th>Revenue</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+        <tfoot>
+          <tr>
+            <td colspan="7" id="summaryCell">Make decisions and run the day.</td>
+          </tr>
+        </tfoot>
+      </table>
+
+      <div id="endPanel" style="display:none; margin-top:14px">
+        <div class="endcard">
+          <div class="card" style="margin:0">
+            <h2>Final Score</h2>
+            <div class="grid">
+              <div class="metric"><div class="label">Total Revenue</div><div class="value" id="finalRev">$0</div></div>
+              <div class="metric"><div class="label">Seats Sold</div><div class="value" id="finalSeats">0</div></div>
+              <div class="metric"><div class="label">Load Factor</div><div class="value" id="finalLF">0%</div></div>
+            </div>
+            <div style="height:8px"></div>
+            <div class="muted">Spoilage (empty seats): <b id="spoilage">0</b> • Missed high-fare demand (closed lower buckets): <b id="buyUpCount">0</b></div>
+          </div>
+
+          <div class="card" style="margin:0">
+            <h2>Benchmarks</h2>
+            <div class="compare">
+              <div class="metric"><div class="label">Always Open</div><div class="value" id="benchAO">$0</div><div class="small">(L/M open all 10 days)</div></div>
+              <div class="metric"><div class="label">Always Protect</div><div class="value" id="benchAP">$0</div><div class="small">(L closed, M open)</div></div>
+              <div class="metric"><div class="label">Greedy Protect</div><div class="value" id="benchGR">$0</div><div class="small">(Close L when seats/day &lt; exp demand)</div></div>
+            </div>
+          </div>
+        </div>
+        <div class="footer" style="justify-content:space-between">
+          <div class="muted">Replay with the <b>same randomness</b> to try new strategies. Use New Game to re-seed.</div>
+          <div>
+            <button class="btn ghost small" id="btnReplay">Replay Same Seed</button>
+            <button class="btn primary" id="btnShare">Share / Export</button>
+          </div>
+        </div>
+      </div>
+
+    </section>
+  </div>
+
+  <script>
+    // ======= Seeded RNG (Mulberry32) =======
+    function mulberry32(a){return function(){var t=a+=0x6D2B79F5;t=Math.imul(t^t>>>15,t|1);t^=t+Math.imul(t^t>>>7,t|61);return ((t^t>>>14)>>>0)/4294967296}}
+    function seededRandInt(rng, min, max){return Math.floor(rng()*(max-min+1))+min}
+    function seededPoisson(rng, lambda){ // Knuth
+      var L=Math.exp(-lambda), k=0, p=1
+      do{ k++; p*=rng() } while(p>L)
+      return k-1
+    }
+
+    // ======= Game Parameters =======
+    const PARAMS_DEFAULT = {
+      days: 10,
+      capacity: 80,
+      fares: {Y:400, M:250, L:120},
+      muBase: {Y:3.5, M:6.0, L:9.0}, // average daily demand if open
+      buyUp: { // if closed, a proportion attempts to buy higher
+        L_to_M: 0.25,
+        L_to_Y: 0.06,
+        M_to_Y: 0.30
+      }
+    }
+
+    // ======= Game State =======
+    let SEED = Math.floor(Math.random()*1e9)
+    let rng = mulberry32(SEED)
+    let S = {}
+
+    function reset(params=PARAMS_DEFAULT){
+      S = {
+        day: 1,
+        days: params.days,
+        cap: params.capacity,
+        seatsLeft: params.capacity,
+        fares: {...params.fares},
+        muBase: {...params.muBase},
+        buyUp: {...params.buyUp},
+        history: [],
+        revenue: 0,
+        buyUpsAccepted: 0,
+      }
+      // UI reset
+      document.querySelector('#dailyTable tbody').innerHTML=''
+      document.querySelector('#summaryCell').textContent = 'Make decisions and run the day.'
+      document.getElementById('dayLabel').textContent = S.day
+      document.getElementById('depDays').textContent = S.days - S.day + 1
+      document.getElementById('seatsLeft').textContent = S.seatsLeft
+      document.getElementById('revTag').textContent = fmtCur(S.revenue)
+      document.getElementById('bookedTag').textContent = S.cap - S.seatsLeft
+      document.getElementById('lfTag').textContent = pct(S)
+      document.getElementById('capTag').textContent = S.cap
+      document.getElementById('endPanel').style.display='none'
+      document.getElementById('toggleM').checked = true
+      document.getElementById('toggleL').checked = true
+      updateHint()
+    }
+
+    function fmtCur(v){return '$' + v.toLocaleString(undefined,{maximumFractionDigits:0})}
+    function pct(){return Math.round(100*(S.cap - S.seatsLeft)/S.cap) + '%'}
+
+    function demandForDay(openM, openL){
+      // baseline arrivals
+      let y = seededPoisson(rng, S.muBase.Y)
+      let m = openM ? seededPoisson(rng, S.muBase.M) : 0
+      let l = openL ? seededPoisson(rng, S.muBase.L) : 0
+
+      // buy-up when closed
+      let buyLM = 0, buyLY = 0, buyMY = 0
+      if(!openL){
+        buyLM = Math.round(l * S.buyUp.L_to_M)
+        buyLY = Math.round(l * S.buyUp.L_to_Y)
+        l = 0
+      }
+      if(!openM){
+        buyMY = Math.round(m * S.buyUp.M_to_Y)
+        m = 0
+      }
+      // total arrivals by class AFTER buy-ups
+      return {arr:{Y:y, M:m, L:l}, buy:{LM:buyLM, LY:buyLY, MY:buyMY}}
+    }
+
+    function accept(arrivals){
+      let soldY=0, soldM=0, soldL=0, rev=0, remaining=S.seatsLeft
+      // Priority order: Y then M then L
+      function sell(qty, fare){
+        const sellQty = Math.max(0, Math.min(qty, remaining))
+        remaining -= sellQty
+        rev += sellQty * S.fares[fare]
+        return sellQty
+      }
+      soldY += sell(arrivals.arr.Y + arrivals.buy.MY + arrivals.buy.LY, 'Y')
+      soldM += sell(arrivals.arr.M + arrivals.buy.LM, 'M')
+      soldL += sell(arrivals.arr.L, 'L')
+      const boughtUpAccepted = Math.min(arrivals.buy.MY + arrivals.buy.LY, soldY) + Math.min(arrivals.buy.LM, soldM)
+      return {sold:{Y:soldY,M:soldM,L:soldL}, rev, seatsLeft:remaining, buyUpsAccepted: boughtUpAccepted}
+    }
+
+    function runDay(){
+      if(S.day> S.days) return
+      const openM = document.getElementById('toggleM').checked
+      const openL = document.getElementById('toggleL').checked
+
+      const arrivals = demandForDay(openM, openL)
+      const outcome = accept(arrivals)
+
+      S.seatsLeft = outcome.seatsLeft
+      S.revenue += outcome.rev
+      S.buyUpsAccepted += outcome.buyUpsAccepted
+
+      // write row
+      const tr = document.createElement('tr')
+      tr.innerHTML = `
+        <td>Day ${S.day}</td>
+        <td>${openM?'Open':'Closed'} / ${openL?'Open':'Closed'}</td>
+        <td>${arrivals.arr.Y}/${arrivals.arr.M}/${arrivals.arr.L}</td>
+        <td>LM:${arrivals.buy.LM} • LY:${arrivals.buy.LY} • MY:${arrivals.buy.MY}</td>
+        <td>${outcome.sold.Y}/${outcome.sold.M}/${outcome.sold.L}</td>
+        <td>${S.seatsLeft}</td>
+        <td>${fmtCur(outcome.rev)}</td>`
+      document.querySelector('#dailyTable tbody').appendChild(tr)
+
+      document.getElementById('dayLabel').textContent = Math.min(S.day+1, S.days)
+      document.getElementById('depDays').textContent = Math.max(0, S.days - S.day)
+      document.getElementById('seatsLeft').textContent = S.seatsLeft
+      document.getElementById('revTag').textContent = fmtCur(S.revenue)
+      document.getElementById('bookedTag').textContent = S.cap - S.seatsLeft
+      document.getElementById('lfTag').textContent = pct(S)
+
+      S.history.push({day:S.day, openM, openL, arrivals, outcome})
+      S.day++
+      updateHint()
+
+      if(S.day > S.days){
+        endGame()
+      }
+    }
+
+    function expectedRemainingDemand(){
+      const dLeft = S.days - S.day + 1
+      return {
+        Y: dLeft * S.muBase.Y,
+        M: dLeft * S.muBase.M,
+        L: dLeft * S.muBase.L,
+      }
+    }
+
+    function updateHint(){
+      if(S.day> S.days){ document.getElementById('hintBox').textContent = 'Game finished. Review your results and benchmarks.'; return }
+      const dLeft = S.days - S.day + 1
+      const exp = expectedRemainingDemand()
+      const seatsPerDay = S.seatsLeft / dLeft
+      // simple guidance
+      let advice = []
+      if(seatsPerDay < (S.muBase.Y + 0.4*S.muBase.M)){
+        advice.push('Consider closing L to protect seats for Y/M.')
+      } else {
+        advice.push('Keeping L open likely safe today.')
+      }
+      if(seatsPerDay < (S.muBase.Y + S.muBase.M)){
+        advice.push('If demand is hot, close M late in horizon.')
+      } else {
+        advice.push('M can stay open for mix and volume.')
+      }
+      advice.push(`Seats/day: ${seatsPerDay.toFixed(1)} • Exp rem Y: ${Math.round(exp.Y)} | M: ${Math.round(exp.M)} | L: ${Math.round(exp.L)}`)
+      document.getElementById('hintBox').textContent = advice.join(' ')
+    }
+
+    function greedyRecommendation(){
+      const dLeft = S.days - S.day + 1
+      const seatsPerDay = S.seatsLeft / dLeft
+      const closeL = seatsPerDay < (S.muBase.Y + 0.5*S.muBase.M)
+      const closeM = seatsPerDay < (S.muBase.Y) && dLeft <= 3
+      return {openM: !closeM, openL: !closeL}
+    }
+
+    function benchRun(policyFn){
+      // run a full simulation from fresh state with same seed
+      const benchRng = mulberry32(SEED)
+      // shadow state
+      let seats = S.cap, rev=0
+      for(let d=1; d<=S.days; d++){
+        const {openM, openL} = policyFn({
+          day:d,
+          days:S.days,
+          seatsLeft: seats,
+          muBase: S.muBase
+        })
+        // generate arrivals using benchRng
+        const arrivals = (function(){
+          let y = seededPoisson(benchRng, S.muBase.Y)
+          let m = openM ? seededPoisson(benchRng, S.muBase.M) : 0
+          let l = openL ? seededPoisson(benchRng, S.muBase.L) : 0
+          let buyLM=0,buyLY=0,buyMY=0
+          if(!openL){ buyLM = Math.round(l*S.buyUp.L_to_M); buyLY = Math.round(l*S.buyUp.L_to_Y); l=0 }
+          if(!openM){ buyMY = Math.round(m*S.buyUp.M_to_Y); m=0 }
+          return {arr:{Y:y,M:m,L:l}, buy:{LM:buyLM,LY:buyLY,MY:buyMY}}
+        })()
+        // accept in priority order
+        const soldY = Math.min(seats, arrivals.arr.Y + arrivals.buy.MY + arrivals.buy.LY); seats -= soldY; rev += soldY*S.fares.Y
+        const soldM = Math.min(seats, arrivals.arr.M + arrivals.buy.LM); seats -= soldM; rev += soldM*S.fares.M
+        const soldL = Math.min(seats, arrivals.arr.L); seats -= soldL; rev += soldL*S.fares.L
+      }
+      return rev
+    }
+
+    function endGame(){
+      // Summaries
+      const spoil = S.seatsLeft
+      document.getElementById('finalRev').textContent = fmtCur(S.revenue)
+      document.getElementById('finalSeats').textContent = (S.cap - S.seatsLeft)
+      document.getElementById('finalLF').textContent = pct()
+      document.getElementById('spoilage').textContent = spoil
+      document.getElementById('buyUpCount').textContent = S.buyUpsAccepted
+
+      // Benchmarks with identical randomness
+      const alwaysOpen = benchRun(()=>({openM:true, openL:true}))
+      const alwaysProtect = benchRun(()=>({openM:true, openL:false}))
+      const greedy = benchRun(({day,days,seatsLeft,muBase})=>{
+        const dLeft = days - day + 1
+        const closeL = (seatsLeft/dLeft) < (muBase.Y + 0.5*muBase.M)
+        const closeM = (seatsLeft/dLeft) < (muBase.Y) && dLeft <= 3
+        return {openM: !closeM, openL: !closeL}
+      })
+      document.getElementById('benchAO').textContent = fmtCur(alwaysOpen)
+      document.getElementById('benchAP').textContent = fmtCur(alwaysProtect)
+      document.getElementById('benchGR').textContent = fmtCur(greedy)
+
+      // footer
+      const verdict = S.revenue >= greedy ? 'Great run — you matched or beat the greedy benchmark!' : 'Review the daily log to find spots to protect more for Y.'
+      document.getElementById('summaryCell').textContent = `Final revenue ${fmtCur(S.revenue)}. ${verdict}`
+      document.getElementById('endPanel').style.display='block'
+    }
+
+    function exportShare(){
+      const payload = {
+        seed: SEED,
+        params: {days:S.days, capacity:S.cap, fares:S.fares, muBase:S.muBase, buyUp:S.buyUp},
+        history: S.history,
+        revenue: S.revenue,
+      }
+      const blob = new Blob([JSON.stringify(payload, null, 2)], {type:'application/json'})
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url; a.download = `seat-control-trainer_${SEED}.json`
+      a.click(); URL.revokeObjectURL(url)
+    }
+
+    // ======= Init & Events =======
+    document.getElementById('btnSim').addEventListener('click', runDay)
+    document.getElementById('btnReset').addEventListener('click', ()=>{ SEED = Math.floor(Math.random()*1e9); rng = mulberry32(SEED); reset() })
+    document.getElementById('btnHint').addEventListener('click', ()=>{
+      const rec = greedyRecommendation()
+      document.getElementById('toggleM').checked = rec.openM
+      document.getElementById('toggleL').checked = rec.openL
+      updateHint()
+    })
+    document.getElementById('btnReplay').addEventListener('click', ()=>{ rng = mulberry32(SEED); reset() })
+    document.getElementById('btnShare').addEventListener('click', exportShare)
+
+    // start
+    reset()
+  </script>
+</body>
+</html>
